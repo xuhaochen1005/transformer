@@ -1,0 +1,13 @@
+.idea
+.vscode
+__debug*
+logs
+website/node_modules
+website/package-lock.json
+website/dist
+node_modules
+package.json
+package-lock.json
+yarn.lock
+vendor
+httptest

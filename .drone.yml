@@ -1,0 +1,116 @@
+kind: pipeline
+type: docker
+name: minzhu
+trigger:
+  event:
+  - push
+  ref:
+  - refs/heads/master
+workspace:
+  base: /drone/src
+  path: transformer_mz
+steps:
+- name: build-backend-binary
+  image: golang:1.16.5
+  environment:
+    GOPATH: /drone
+    GO111MODULE: on
+    GOPROXY: https://goproxy.cn
+  volumes:
+  - name: gopkg
+    path: /drone/pkg
+  commands:
+  - mkdir -p bin
+  - go mod download
+  - go build -o bin/transformer server/server.go
+- name: build-backend-image
+  image: plugins/docker:19.03.8
+  volumes:
+  - name: docker_lib
+    path: /var/lib/docker
+  privileged: true
+  commands:
+  - echo "192.168.88.1 fansha.com" >> /etc/hosts
+  - /usr/local/bin/dockerd-entrypoint.sh /bin/drone-docker
+  settings:
+    repo: 192.168.88.1:8888/minzhu/transformer
+    registry: 192.168.88.1:8888
+    insecure: true
+    username:
+      from_secret: docker_usr
+    password:
+      from_secret: docker_pwd
+    tags: latest
+  depends_on:
+  - build-backend-binary
+- name: deploy-backend
+  image: appleboy/drone-ssh:1.6.3
+  settings:
+    host: 192.168.45.235
+    username: root
+    password:
+      from_secret: sh_pwd
+    port: 22
+    script:
+    - docker pull 192.168.45.233:8888/minzhu/transformer:latest
+    - docker stop transformer
+    - docker rm -f transformer
+    - docker run -d --restart always --publish 8080:8080 --name transformer 192.168.45.233:8888/minzhu/transformer:latest
+  depends_on:
+  - build-backend-image
+- name: build-frontend-binary
+  image: node:14.16.1
+  volumes:
+  - name: node_modules
+    path: /drone/src/transformer_mz/website/node_modules
+  commands:
+  - cd website
+  - yarn
+  - yarn build
+  - mv dist docker
+- name: build-frontend-image
+  image: plugins/docker:19.03.8
+  volumes:
+  - name: docker_lib
+    path: /var/lib/docker
+  privileged: true
+  commands:
+  - echo "192.168.88.1 fansha.com" >> /etc/hosts
+  - cd /drone/src/transformer_mz/website/docker/
+  - /usr/local/bin/dockerd-entrypoint.sh /bin/drone-docker
+  settings:
+    repo: 192.168.88.1:8888/minzhu/transformer-web
+    registry: 192.168.88.1:8888
+    insecure: true
+    username:
+      from_secret: docker_usr
+    password:
+      from_secret: docker_pwd
+    tags: latest
+  depends_on:
+  - build-frontend-binary
+- name: deploy-frontend
+  image: appleboy/drone-ssh:1.6.3
+  settings:
+    host: 192.168.45.235
+    username: root
+    password:
+      from_secret: sh_pwd
+    port: 22
+    script:
+    - docker pull 192.168.45.233:8888/minzhu/transformer-web:latest
+    - docker stop transformer-web
+    - docker rm -f transformer-web
+    - docker run -d --restart always --publish 8888:8888 --name transformer-web -v /data/upload:/root/upload 192.168.45.233:8888/minzhu/transformer-web:latest
+  depends_on:
+  - build-frontend-image
+volumes:
+- name: gopkg
+  host:
+    path: /opt/transformer_mz/pkg
+- name: node_modules
+  host:
+    path: /opt/transformer_mz/node_modules
+- name: docker_lib
+  host:
+    path: /opt/transformer_mz/lib

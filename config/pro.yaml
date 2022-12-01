@@ -1,0 +1,21 @@
+server:
+  ip: 0.0.0.0
+  port: 8082
+
+third_party:
+  url_link: http://47.112.167.85:5004 # 对接外部系统URL
+log:
+  level: info
+  file: /var/log/transformer_mz/transformer.log
+  rotate: 1
+  keep: 30
+database:
+  address: (47.112.167.85:43016)/transformer_mz?charset=utf8mb4&parseTime=True&loc=Local
+  username: minzhu_dev
+  password: lvxm9Fk6dldt%Wji
+  debug: true
+  max_idle: 4
+  max_open: 4
+  max_life: 60
+docs:
+  uploadpath: /usr/local/share/tranformer_mz/upload
